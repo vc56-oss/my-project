@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Create your avatar</title>
+<style>
+  :root {
+    --bg: #131f24;
+    --panel: #1f2c34;
+    --line: #37464f;
+    --text: #ffffff;
+    --muted: #8fa0a8;
+    --green: #89e219;
+    --green-dark: #58a700;
+    --blue: #49c0f8;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text);
+    font-family: "DIN Next Rounded", "Nunito", "Avenir Next Rounded", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+
+  .app { max-width: 520px; height: 100dvh; margin: 0 auto; position: relative; overflow: hidden; }
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
+    opacity: 0; pointer-events: none; transform: translateX(24px); transition: opacity .25s, transform .25s; }
+  .screen.active { opacity: 1; pointer-events: auto; transform: none; }
+  .screen.left { transform: translateX(-24px); }
+
+  .back { width: 44px; height: 44px; background: none; border: 0; padding: 8px; color: var(--muted); border-radius: 12px; }
+  .back:hover { background: var(--panel); }
+  .back svg { width: 100%; height: 100%; }
+
+  /* Primary button */
+  .btn { width: 100%; border: 0; border-radius: 16px; padding: 16px; font-weight: 800; font-size: 17px;
+    letter-spacing: .8px; text-transform: uppercase; background: var(--green); color: #1a2a00;
+    box-shadow: 0 4px 0 var(--green-dark); transition: transform .08s, box-shadow .08s, filter .15s; }
+  .btn:hover { filter: brightness(1.05); }
+  .btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--green-dark); }
+  .btn.ghost { background: transparent; color: var(--blue); box-shadow: none; border: 2px solid var(--line); box-shadow: 0 4px 0 var(--line); }
+  .btn.ghost:active { box-shadow: 0 0 0 var(--line); }
+
+  /* Screen 1: Duo */
+  .duo-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+  .bubble { position: relative; border: 2px solid var(--line); border-radius: 18px; padding: 20px 22px;
+    font-size: 21px; line-height: 1.5; max-width: 340px; margin-bottom: 18px; }
+  .bubble b { font-weight: 800; }
+  .bubble::before, .bubble::after { content: ""; position: absolute; left: 50%; border: 12px solid transparent; transform: translateX(-50%); }
+  .bubble::before { bottom: -25px; border-top-color: var(--line); }
+  .bubble::after { bottom: -21px; border-top-color: var(--bg); }
+  .duo { width: 170px; animation: bob 2.6s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-6px); } }
+
+  /* Screen 2: avatar creator */
+  .top { display: flex; align-items: center; gap: 4px; }
+  .top h1 { flex: 1; text-align: center; margin: 0 44px 0 0; font-size: 20px; font-weight: 800; }
+  .stage { display: flex; justify-content: center; align-items: center; padding: 8px 0 14px; position: relative; }
+  .stage .avatar-big { width: min(240px, 52vw, 32dvh); aspect-ratio: 1; border-radius: 50%; overflow: hidden;
+    box-shadow: 0 0 0 4px var(--line); }
+  .stage svg { display: block; width: 100%; height: 100%; }
+  .dice { position: absolute; right: 4px; bottom: 14px; width: 48px; height: 48px; border-radius: 14px;
+    border: 2px solid var(--line); background: var(--panel); box-shadow: 0 3px 0 var(--line); font-size: 24px; }
+  .dice:active { transform: translateY(3px); box-shadow: none; }
+
+  .tabs { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: none; padding: 9px 14px; border-radius: 12px; border: 2px solid var(--line); background: transparent;
+    font-weight: 800; font-size: 13px; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); }
+  .tab[aria-selected="true"] { border-color: var(--blue); background: rgba(73,192,248,.12); color: var(--blue); }
+
+  .options { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 2px 12px; }
+  .group-label { font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin: 10px 0 8px; }
+  .group-label:first-child { margin-top: 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 10px; }
+  .tile { aspect-ratio: 1; border-radius: 16px; border: 2px solid var(--line); background: var(--panel); padding: 4px;
+    box-shadow: 0 3px 0 var(--line); overflow: hidden; display: grid; place-items: center; }
+  .tile svg { width: 100%; height: 100%; border-radius: 12px; display: block; }
+  .tile[aria-pressed="true"] { border-color: var(--green); box-shadow: 0 3px 0 var(--green-dark); }
+  .tile:active { transform: translateY(3px); box-shadow: none; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+  .swatch { width: 44px; height: 44px; border-radius: 50%; border: 3px solid var(--bg); box-shadow: 0 0 0 2px var(--line); }
+  .swatch[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--green); }
+  .swatch:active { transform: scale(.92); }
+
+  .footer { padding-top: 10px; }
+
+  /* Screen 3: done */
+  .done-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; text-align: center; }
+  .done-wrap .avatar-big { width: min(220px, 56vw); aspect-ratio: 1; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 4px var(--green); animation: pop .5s cubic-bezier(.3,1.6,.5,1); }
+  .done-wrap svg { display: block; width: 100%; height: 100%; }
+  .done-wrap h2 { margin: 0; font-size: 26px; font-weight: 800; }
+  .done-wrap p { margin: 6px 0 0; color: var(--muted); font-size: 17px; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } }
+
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 1. Duo intro -->
+  <section class="screen active" id="s-duo" aria-label="Welcome">
+    <button class="back" aria-label="Back" tabindex="-1" style="visibility:hidden">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>
+    </button>
+    <div class="duo-wrap">
+      <div class="bubble">Just <b>7 quick questions</b> before we start your first lesson!</div>
+      <svg class="duo" viewBox="0 0 200 200" role="img" aria-label="Duo the owl">
+        <ellipse cx="100" cy="168" rx="52" ry="26" fill="#3c4a52"/>
+        <path d="M50 92c-16 2-26 6-28 12 4 22 24 40 42 44z" fill="#58cc02"/>
+        <path d="M150 92c16 2 26 6 28 12-4 22-24 40-42 44z" fill="#58cc02"/>
+        <path d="M54 56c0-22 8-38 24-38 8 0 14 4 22 4s14-4 22-4c16 0 24 16 24 38v82c0 14-12 26-46 26S54 152 54 138z" fill="#58cc02"/>
+        <path d="M60 40l12 8-4-22zM140 40l-12 8 4-22z" fill="#89e219"/>
+        <path d="M64 38c14 0 24 10 36 14 12-4 22-14 36-14 6 16 2 30-8 38-10 8-52 8-64 0-10-8-10-22 0-38z" fill="#89e219" opacity=".55"/>
+        <ellipse cx="70" cy="86" rx="26" ry="27" fill="#fff"/>
+        <ellipse cx="130" cy="86" rx="26" ry="27" fill="#fff"/>
+        <ellipse cx="72" cy="88" rx="16" ry="17" fill="#3c4a52"/>
+        <ellipse cx="128" cy="88" rx="16" ry="17" fill="#3c4a52"/>
+        <path d="M74 74l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="#fff"/>
+        <path d="M132 74l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="#fff"/>
+        <path d="M90 100h20l-3 14c-1 5-13 5-14 0z" fill="#ffc200"/>
+        <path d="M93 110c3 5 11 5 14 0-2 8-12 8-14 0z" fill="#ff86d0"/>
+        <path d="M80 138c6 3 12 3 18 0M102 138c6 3 12 3 18 0" stroke="#89e219" stroke-width="4" stroke-linecap="round" fill="none"/>
+        <ellipse cx="62" cy="156" rx="11" ry="14" fill="#ff9600" transform="rotate(-24 62 156)"/>
+        <ellipse cx="138" cy="156" rx="11" ry="14" fill="#ff9600" transform="rotate(24 138 156)"/>
+      </svg>
+    </div>
+    <button class="btn" id="go-create">Continue</button>
+  </section>
+
+  <!-- 2. Avatar creator -->
+  <section class="screen" id="s-create" aria-label="Create your avatar">
+    <div class="top">
+      <button class="back" id="back-duo" aria-label="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>
+      </button>
+      <h1>Create your avatar</h1>
+    </div>
+    <div class="stage">
+      <div class="avatar-big" id="preview"></div>
+      <button class="dice" id="random" aria-label="Randomize avatar" title="Randomize">🎲</button>
+    </div>
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div class="options" id="options"></div>
+    <div class="footer"><button class="btn" id="save">Save avatar</button></div>
+  </section>
+
+  <!-- 3. Done -->
+  <section class="screen" id="s-done" aria-label="Avatar saved">
+    <button class="back" id="back-create" aria-label="Back to editing">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>
+    </button>
+    <div class="done-wrap">
+      <div class="avatar-big" id="final"></div>
+      <div><h2>Looking great!</h2><p>Your avatar is ready for your first lesson.</p></div>
+    </div>
+    <button class="btn" id="start">Start learning</button>
+  </section>
+</div>
+
+<script>
+const SKINS = ["#ffdcbf", "#f5c394", "#e0a370", "#c68642", "#8d5524", "#5c3a21"];
+const HAIR_COLORS = ["#2b1b12", "#6a4025", "#b5772f", "#e8c46b", "#d9421f", "#7b4de0", "#3aa0ff", "#e8e8ec"];
+const OUTFITS = ["#58cc02", "#1cb0f6", "#ff4b4b", "#ffc800", "#ce82ff", "#ff86d0", "#3c4a52", "#ffffff"];
+const BGS = ["#58cc02", "#1cb0f6", "#ff9600", "#ce82ff", "#ff86d0", "#ffc800", "#2b7a8c", "#46545c"];
+
+const HAIR = {
+  none: { back: () => "", front: () => "" },
+  short: {
+    back: () => "",
+    front: c => `<path d="M55 90C50 42 84 34 100 34s52 8 45 56c-6-16-16-26-28-28-14 8-42 8-56 2-6 6-4 20-6 26z" fill="${c}"/>`
+  },
+  long: {
+    back: c => `<path d="M50 92C46 40 80 32 100 32s54 8 50 60l4 74H46z" fill="${c}"/>`,
+    front: c => `<path d="M55 92C52 44 84 38 100 38s48 6 45 54c-4-18-14-28-26-30-14 8-40 8-56 0-6 8-6 20-8 30z" fill="${c}"/>`
+  },
+  curly: {
+    back: c => [[56,76,16],[48,98,14],[144,76,16],[152,98,14],[74,46,18],[126,46,18],[100,40,20]].map(([x,y,r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}"/>`).join(""),
+    front: c => [[66,58,15],[88,50,16],[112,50,16],[134,58,15],[100,56,14]].map(([x,y,r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}"/>`).join("")
+  },
+  bun: {
+    back: c => `<circle cx="100" cy="26" r="17" fill="${c}"/>`,
+    front: c => `<path d="M55 90C50 44 84 36 100 36s52 8 45 54c-6-18-16-28-28-30-14 8-42 8-56 2-6 6-4 22-6 28z" fill="${c}"/>`
+  },
+  spiky: {
+    back: () => "",
+    front: c => `<path d="M54 92L48 56l22 10 4-30 20 20 6-28 12 28 18-20 4 26 20-10-8 40c-6-14-14-22-24-26-16 8-40 8-56 2-6 6-8 14-8 24z" fill="${c}"/>`
+  }
+};
+
+const EYES = {
+  round: () => `<ellipse cx="82" cy="94" rx="5.5" ry="7" fill="#2b2b2b"/><ellipse cx="118" cy="94" rx="5.5" ry="7" fill="#2b2b2b"/><circle cx="84" cy="91.5" r="2" fill="#fff"/><circle cx="120" cy="91.5" r="2" fill="#fff"/>`,
+  happy: () => `<path d="M73 97q9-14 18 0M109 97q9-14 18 0" stroke="#2b2b2b" stroke-width="4" stroke-linecap="round" fill="none"/>`,
+  sparkle: () => `<ellipse cx="82" cy="94" rx="9" ry="10" fill="#fff"/><ellipse cx="118" cy="94" rx="9" ry="10" fill="#fff"/><ellipse cx="83" cy="95" rx="6" ry="7" fill="#2b2b2b"/><ellipse cx="119" cy="95" rx="6" ry="7" fill="#2b2b2b"/><circle cx="85" cy="92" r="2.4" fill="#fff"/><circle cx="121" cy="92" r="2.4" fill="#fff"/>`,
+  sleepy: () => `<path d="M73 95h18M109 95h18" stroke="#2b2b2b" stroke-width="4" stroke-linecap="round"/>`,
+  wink: () => `<ellipse cx="82" cy="94" rx="5.5" ry="7" fill="#2b2b2b"/><circle cx="84" cy="91.5" r="2" fill="#fff"/><path d="M109 96q9-12 18 0" stroke="#2b2b2b" stroke-width="4" stroke-linecap="round" fill="none"/>`
+};
+
+const MOUTH = {
+  smile: () => `<path d="M86 118q14 14 28 0" stroke="#2b2b2b" stroke-width="4" stroke-linecap="round" fill="none"/>`,
+  grin: () => `<path d="M82 114h36c0 16-8 22-18 22s-18-6-18-22z" fill="#2b2b2b"/><path d="M85 114h30v5H85z" fill="#fff"/><path d="M92 131q8-6 16 0c-2 4-14 4-16 0z" fill="#ff7a8a"/>`,
+  neutral: () => `<path d="M88 123h24" stroke="#2b2b2b" stroke-width="4" stroke-linecap="round"/>`,
+  open: () => `<ellipse cx="100" cy="124" rx="7" ry="9" fill="#2b2b2b"/><ellipse cx="100" cy="129" rx="4" ry="3.5" fill="#ff7a8a"/>`,
+  smirk: () => `<path d="M88 123q14 6 26-6" stroke="#2b2b2b" stroke-width="4" stroke-linecap="round" fill="none"/>`
+};
+
+const EXTRA = {
+  none: () => "",
+  glasses: () => `<g fill="rgba(255,255,255,.18)" stroke="#2b2b2b" stroke-width="3.5"><circle cx="82" cy="94" r="14"/><circle cx="118" cy="94" r="14"/></g><path d="M96 93h8M68 90l-14-4M132 90l14-4" stroke="#2b2b2b" stroke-width="3.5" stroke-linecap="round"/>`,
+  shades: () => `<path d="M64 86h34v12c0 8-6 12-17 12s-17-4-17-12zM102 86h34v12c0 8-6 12-17 12s-17-4-17-12z" fill="#1c1c1c"/><path d="M98 90h4M64 88l-12-4M136 88l12-4" stroke="#1c1c1c" stroke-width="4" stroke-linecap="round"/><path d="M70 91l8 0M108 91l8 0" stroke="#fff" stroke-opacity=".35" stroke-width="3" stroke-linecap="round"/>`,
+  blush: () => `<circle cx="68" cy="112" r="8" fill="#ff7a8a" opacity=".45"/><circle cx="132" cy="112" r="8" fill="#ff7a8a" opacity=".45"/>`,
+  headphones: () => `<path d="M52 98C48 40 152 40 148 98" stroke="#3c4a52" stroke-width="7" fill="none" stroke-linecap="round"/><rect x="44" y="88" width="14" height="26" rx="7" fill="#58cc02"/><rect x="142" y="88" width="14" height="26" rx="7" fill="#58cc02"/>`
+};
+
+const OUTFIT_STYLE = {
+  tee: c => `<path d="M30 200c0-34 28-52 70-52s70 18 70 52z" fill="${c}"/><path d="M80 150q20 20 40 0" fill="#00000026"/>`,
+  hoodie: c => `<path d="M36 200c0-30 18-46 40-54 6-4 18-6 24-6s18 2 24 6c22 8 40 24 40 54z" fill="${c}"/><path d="M72 146q28 30 56 0q-8 22-28 24t-28-24z" fill="#00000026"/><path d="M90 160v22M110 160v22" stroke="#fff" stroke-opacity=".8" stroke-width="3.5" stroke-linecap="round"/>`,
+  collar: c => `<path d="M30 200c0-34 28-52 70-52s70 18 70 52z" fill="${c}"/><path d="M78 148l22 26 22-26-8-6-14 14-14-14z" fill="#fff"/><path d="M100 174v26" stroke="#00000030" stroke-width="3"/>`
+};
+
+const SECTIONS = [
+  { id: "hair", label: "Hair", groups: [
+    { key: "hair", title: "Style", type: "tiles", options: Object.keys(HAIR) },
+    { key: "hairColor", title: "Color", type: "swatches", options: HAIR_COLORS }
+  ]},
+  { id: "face", label: "Face", groups: [
+    { key: "eyes", title: "Eyes", type: "tiles", options: Object.keys(EYES) },
+    { key: "mouth", title: "Mouth", type: "tiles", options: Object.keys(MOUTH) }
+  ]},
+  { id: "skin", label: "Skin", groups: [
+    { key: "skin", title: "Skin tone", type: "swatches", options: SKINS }
+  ]},
+  { id: "outfit", label: "Outfit", groups: [
+    { key: "outfit", title: "Style", type: "tiles", options: Object.keys(OUTFIT_STYLE) },
+    { key: "outfitColor", title: "Color", type: "swatches", options: OUTFITS }
+  ]},
+  { id: "extras", label: "Extras", groups: [
+    { key: "extra", title: "Accessory", type: "tiles", options: Object.keys(EXTRA) }
+  ]},
+  { id: "bg", label: "Background", groups: [
+    { key: "bg", title: "Color", type: "swatches", options: BGS }
+  ]}
+];
+
+const DEFAULT = { skin: SKINS[1], hair: "short", hairColor: HAIR_COLORS[1], eyes: "sparkle", mouth: "smile",
+  extra: "none", outfit: "hoodie", outfitColor: OUTFITS[0], bg: BGS[1] };
+
+let state = load() || { ...DEFAULT };
+let activeTab = "hair";
+
+function load() { try { return JSON.parse(localStorage.getItem("avatar")); } catch { return null; } }
+function persist() { try { localStorage.setItem("avatar", JSON.stringify(state)); } catch {} }
+
+function avatarSVG(s) {
+  const hair = HAIR[s.hair];
+  const darker = "#0000001f";
+  return `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <rect width="200" height="200" fill="${s.bg}"/>
+    ${hair.back(s.hairColor)}
+    ${s.extra === "headphones" ? "" : ""}
+    <rect x="86" y="126" width="28" height="30" rx="8" fill="${s.skin}"/>
+    <rect x="86" y="126" width="28" height="12" fill="${darker}"/>
+    ${OUTFIT_STYLE[s.outfit](s.outfitColor)}
+    <ellipse cx="54" cy="98" rx="7" ry="10" fill="${s.skin}"/><ellipse cx="146" cy="98" rx="7" ry="10" fill="${s.skin}"/>
+    <ellipse cx="100" cy="92" rx="46" ry="52" fill="${s.skin}"/>
+    ${EYES[s.eyes]()}
+    ${s.extra === "blush" ? EXTRA.blush() : ""}
+    ${MOUTH[s.mouth]()}
+    ${hair.front(s.hairColor)}
+    ${["glasses","shades","headphones"].includes(s.extra) ? EXTRA[s.extra]() : ""}
+  </svg>`;
+}
+
+function renderPreview() {
+  document.getElementById("preview").innerHTML = avatarSVG(state);
+}
+
+function renderTabs() {
+  const el = document.getElementById("tabs");
+  el.innerHTML = SECTIONS.map(s =>
+    `<button class="tab" role="tab" aria-selected="${s.id === activeTab}" data-tab="${s.id}">${s.label}</button>`).join("");
+}
+
+function renderOptions() {
+  const sec = SECTIONS.find(s => s.id === activeTab);
+  const el = document.getElementById("options");
+  el.innerHTML = sec.groups.map(g => {
+    const body = g.type === "tiles"
+      ? `<div class="grid">${g.options.map(o =>
+          `<button class="tile" aria-label="${o}" aria-pressed="${state[g.key] === o}" data-key="${g.key}" data-val="${o}">${avatarSVG({ ...state, [g.key]: o })}</button>`).join("")}</div>`
+      : `<div class="swatches">${g.options.map(o =>
+          `<button class="swatch" aria-label="${o}" aria-pressed="${state[g.key] === o}" data-key="${g.key}" data-val="${o}" style="background:${o}"></button>`).join("")}</div>`;
+    return `<div class="group-label">${g.title}</div>${body}`;
+  }).join("");
+}
+
+function pick(key, val) {
+  state[key] = val;
+  persist();
+  renderPreview();
+  // Update pressed states + tile thumbnails without resetting scroll
+  renderOptionsKeepScroll();
+}
+function renderOptionsKeepScroll() {
+  const el = document.getElementById("options");
+  const y = el.scrollTop;
+  renderOptions();
+  el.scrollTop = y;
+}
+
+const choice = a => a[Math.floor(Math.random() * a.length)];
+function randomize() {
+  state = {
+    skin: choice(SKINS), hair: choice(Object.keys(HAIR)), hairColor: choice(HAIR_COLORS),
+    eyes: choice(Object.keys(EYES)), mouth: choice(Object.keys(MOUTH)), extra: choice(Object.keys(EXTRA)),
+    outfit: choice(Object.keys(OUTFIT_STYLE)), outfitColor: choice(OUTFITS), bg: choice(BGS)
+  };
+  persist(); renderPreview(); renderOptionsKeepScroll();
+}
+
+function show(id) {
+  const order = ["s-duo", "s-create", "s-done"];
+  const idx = order.indexOf(id);
+  order.forEach((sid, i) => {
+    const el = document.getElementById(sid);
+    el.classList.toggle("active", sid === id);
+    el.classList.toggle("left", i < idx);
+  });
+}
+
+document.getElementById("tabs").addEventListener("click", e => {
+  const t = e.target.closest("[data-tab]"); if (!t) return;
+  activeTab = t.dataset.tab; renderTabs(); renderOptions();
+  document.getElementById("options").scrollTop = 0;
+});
+document.getElementById("options").addEventListener("click", e => {
+  const b = e.target.closest("[data-key]"); if (!b) return;
+  pick(b.dataset.key, b.dataset.val);
+});
+document.getElementById("random").addEventListener("click", randomize);
+document.getElementById("go-create").addEventListener("click", () => show("s-create"));
+document.getElementById("back-duo").addEventListener("click", () => show("s-duo"));
+document.getElementById("back-create").addEventListener("click", () => show("s-create"));
+document.getElementById("save").addEventListener("click", () => {
+  persist();
+  document.getElementById("final").innerHTML = avatarSVG(state);
+  show("s-done");
+});
+
+renderPreview(); renderTabs(); renderOptions();
+</script>
+</body>
+</html>
