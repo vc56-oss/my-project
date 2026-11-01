@@ -92,6 +92,34 @@
   .done-wrap p { margin: 6px 0 0; color: var(--muted); font-size: 17px; }
   @keyframes pop { from { transform: scale(.6); opacity: 0; } }
 
+  /* Screen 4: buddy picker */
+  .buddy-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 4px 2px 12px; }
+  .buddy-body h1 { margin: 6px 0 0; font-size: 24px; font-weight: 800; text-align: center; }
+  .buddy-body .sub { margin: 0; color: var(--muted); text-align: center; }
+  .buddy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; }
+  .buddy-card { border-radius: 18px; border: 2px solid var(--line); background: var(--panel); box-shadow: 0 4px 0 var(--line);
+    padding: 10px 6px 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-weight: 800; font-size: 14px; }
+  .buddy-card svg { width: 100%; max-width: 92px; aspect-ratio: 1; }
+  .buddy-card[aria-pressed="true"] { border-color: var(--green); background: rgba(137,226,25,.1); box-shadow: 0 4px 0 var(--green-dark); }
+  .buddy-card:active { transform: translateY(4px); box-shadow: none; }
+  .name-field { width: 100%; }
+  .name-field label { display: block; font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .name-field input { width: 100%; padding: 14px 16px; border-radius: 14px; border: 2px solid var(--line); background: var(--panel);
+    color: var(--text); font: inherit; font-size: 17px; font-weight: 700; outline: none; }
+  .name-field input:focus { border-color: var(--blue); }
+
+  /* Screen 5: team */
+  .team-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; text-align: center; }
+  .team-wrap .bubble { margin-bottom: 20px; max-width: 300px; font-size: 19px; }
+  .pair { display: flex; align-items: flex-end; justify-content: center; gap: 4px; }
+  .pair .avatar-big { width: min(150px, 38vw); aspect-ratio: 1; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 4px var(--green); }
+  .pair .avatar-big svg { display: block; width: 100%; height: 100%; }
+  .pair .buddy-big { width: min(150px, 38vw); aspect-ratio: 1; background: none; border: 0; padding: 0; margin-left: -10px; }
+  .pair .buddy-big svg { width: 100%; height: 100%; display: block; }
+  .pair .buddy-big.hop { animation: hop .5s cubic-bezier(.3,1.6,.5,1); }
+  @keyframes hop { 40% { transform: translateY(-22px) rotate(-6deg); } }
+  .team-wrap .hint { color: var(--muted); font-size: 15px; margin: 0; }
+
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 </head>
@@ -152,7 +180,42 @@
     </button>
     <div class="done-wrap">
       <div class="avatar-big" id="final"></div>
-      <div><h2>Looking great!</h2><p>Your avatar is ready for your first lesson.</p></div>
+      <div><h2>Looking great!</h2><p>Now let's pick a buddy to learn with.</p></div>
+    </div>
+    <button class="btn" id="to-buddy">Continue</button>
+  </section>
+
+  <!-- 4. Buddy picker -->
+  <section class="screen" id="s-buddy" aria-label="Pick a buddy">
+    <div class="top">
+      <button class="back" id="back-done" aria-label="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>
+      </button>
+      <h1>Pick a buddy</h1>
+    </div>
+    <div class="buddy-body">
+      <p class="sub">Your buddy cheers you on through every lesson.</p>
+      <div class="buddy-grid" id="buddy-grid"></div>
+      <div class="name-field">
+        <label for="buddy-name">Name your buddy</label>
+        <input id="buddy-name" maxlength="14" autocomplete="off" placeholder="Biscuit">
+      </div>
+    </div>
+    <div class="footer"><button class="btn" id="save-buddy">Meet your buddy</button></div>
+  </section>
+
+  <!-- 5. Team -->
+  <section class="screen" id="s-team" aria-label="Your team">
+    <button class="back" id="back-buddy" aria-label="Back to buddies">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>
+    </button>
+    <div class="team-wrap">
+      <div class="bubble" id="team-bubble"></div>
+      <div class="pair">
+        <div class="avatar-big" id="team-avatar"></div>
+        <button class="buddy-big" id="team-buddy" aria-label="Poke your buddy"></button>
+      </div>
+      <p class="hint">Tap your buddy to say hi</p>
     </div>
     <button class="btn" id="start">Start learning</button>
   </section>
@@ -318,8 +381,105 @@ function randomize() {
   persist(); renderPreview(); renderOptionsKeepScroll();
 }
 
+const BUDDIES = {
+  owl: { label: "Owl", svg: () => `
+    <ellipse cx="100" cy="176" rx="46" ry="12" fill="#00000030"/>
+    <path d="M52 92c-14 2-22 6-24 12 4 20 22 36 40 40z" fill="#58cc02"/><path d="M148 92c14 2 22 6 24 12-4 20-22 36-40 40z" fill="#58cc02"/>
+    <path d="M56 58c0-22 8-38 22-38 8 0 14 4 22 4s14-4 22-4c14 0 22 16 22 38v78c0 14-12 26-44 26s-44-12-44-26z" fill="#58cc02"/>
+    <ellipse cx="76" cy="88" rx="22" ry="23" fill="#fff"/><ellipse cx="124" cy="88" rx="22" ry="23" fill="#fff"/>
+    <ellipse cx="78" cy="90" rx="13" ry="14" fill="#3c4a52"/><ellipse cx="122" cy="90" rx="13" ry="14" fill="#3c4a52"/>
+    <circle cx="82" cy="85" r="4" fill="#fff"/><circle cx="126" cy="85" r="4" fill="#fff"/>
+    <path d="M90 100h20l-3 13c-1 5-13 5-14 0z" fill="#ffc200"/>
+    <ellipse cx="68" cy="164" rx="10" ry="8" fill="#ff9600"/><ellipse cx="132" cy="164" rx="10" ry="8" fill="#ff9600"/>` },
+  cat: { label: "Cat", svg: () => `
+    <ellipse cx="100" cy="176" rx="46" ry="12" fill="#00000030"/>
+    <path d="M52 78L50 28l36 24zM148 78l2-50-36 24z" fill="#ff9600"/><path d="M60 66l-1-22 16 11zM140 66l1-22-16 11z" fill="#ffb3d9"/>
+    <ellipse cx="100" cy="106" rx="62" ry="56" fill="#ff9600"/>
+    <ellipse cx="100" cy="126" rx="30" ry="22" fill="#ffe3b8"/>
+    <ellipse cx="76" cy="98" rx="9" ry="12" fill="#2b2b2b"/><ellipse cx="124" cy="98" rx="9" ry="12" fill="#2b2b2b"/>
+    <circle cx="79" cy="93" r="3.5" fill="#fff"/><circle cx="127" cy="93" r="3.5" fill="#fff"/>
+    <path d="M92 116h16l-8 9z" fill="#ff6b8b"/><path d="M100 125q-8 10-16 4M100 125q8 10 16 4" stroke="#2b2b2b" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M60 116l-26-6M60 124l-26 6M140 116l26-6M140 124l26 6" stroke="#2b2b2b" stroke-width="2.5" stroke-linecap="round"/>` },
+  dog: { label: "Dog", svg: () => `
+    <ellipse cx="100" cy="176" rx="46" ry="12" fill="#00000030"/>
+    <ellipse cx="46" cy="94" rx="20" ry="40" fill="#8a5a2c" transform="rotate(10 46 94)"/><ellipse cx="154" cy="94" rx="20" ry="40" fill="#8a5a2c" transform="rotate(-10 154 94)"/>
+    <ellipse cx="100" cy="104" rx="56" ry="56" fill="#d8a063"/>
+    <ellipse cx="100" cy="128" rx="32" ry="24" fill="#f6dcb4"/>
+    <ellipse cx="78" cy="94" rx="8.5" ry="11" fill="#2b2b2b"/><ellipse cx="122" cy="94" rx="8.5" ry="11" fill="#2b2b2b"/>
+    <circle cx="81" cy="90" r="3.2" fill="#fff"/><circle cx="125" cy="90" r="3.2" fill="#fff"/>
+    <ellipse cx="100" cy="116" rx="12" ry="8" fill="#2b2b2b"/>
+    <path d="M100 124v8M100 132q-9 8-18 2M100 132q9 8 18 2" stroke="#2b2b2b" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M92 138q8 16 16 0z" fill="#ff7a8a"/>` },
+  bunny: { label: "Bunny", svg: () => `
+    <ellipse cx="100" cy="176" rx="46" ry="12" fill="#00000030"/>
+    <ellipse cx="74" cy="46" rx="15" ry="42" fill="#f0e6f6"/><ellipse cx="126" cy="46" rx="15" ry="42" fill="#f0e6f6"/>
+    <ellipse cx="74" cy="48" rx="7" ry="30" fill="#ffb3d9"/><ellipse cx="126" cy="48" rx="7" ry="30" fill="#ffb3d9"/>
+    <ellipse cx="100" cy="116" rx="58" ry="52" fill="#f0e6f6"/>
+    <ellipse cx="78" cy="108" rx="8" ry="11" fill="#2b2b2b"/><ellipse cx="122" cy="108" rx="8" ry="11" fill="#2b2b2b"/>
+    <circle cx="81" cy="104" r="3" fill="#fff"/><circle cx="125" cy="104" r="3" fill="#fff"/>
+    <circle cx="62" cy="128" r="9" fill="#ff7a8a" opacity=".35"/><circle cx="138" cy="128" r="9" fill="#ff7a8a" opacity=".35"/>
+    <path d="M93 124h14l-7 8z" fill="#ff6b8b"/><path d="M100 132q-8 9-15 3M100 132q8 9 15 3" stroke="#2b2b2b" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <rect x="94" y="136" width="12" height="14" rx="3" fill="#fff" stroke="#d6c9de" stroke-width="2"/>` },
+  panda: { label: "Panda", svg: () => `
+    <ellipse cx="100" cy="176" rx="46" ry="12" fill="#00000030"/>
+    <circle cx="48" cy="52" r="22" fill="#2b2b2b"/><circle cx="152" cy="52" r="22" fill="#2b2b2b"/>
+    <ellipse cx="100" cy="106" rx="62" ry="56" fill="#fff"/>
+    <ellipse cx="72" cy="98" rx="17" ry="22" fill="#2b2b2b" transform="rotate(20 72 98)"/><ellipse cx="128" cy="98" rx="17" ry="22" fill="#2b2b2b" transform="rotate(-20 128 98)"/>
+    <circle cx="74" cy="98" r="6.5" fill="#fff"/><circle cx="126" cy="98" r="6.5" fill="#fff"/>
+    <circle cx="75" cy="99" r="3.5" fill="#2b2b2b"/><circle cx="125" cy="99" r="3.5" fill="#2b2b2b"/>
+    <ellipse cx="100" cy="122" rx="11" ry="8" fill="#2b2b2b"/>
+    <path d="M100 130q-9 10-18 3M100 130q9 10 18 3" stroke="#2b2b2b" stroke-width="3" fill="none" stroke-linecap="round"/>` },
+  fox: { label: "Fox", svg: () => `
+    <ellipse cx="100" cy="176" rx="46" ry="12" fill="#00000030"/>
+    <path d="M44 84L40 22l44 32zM156 84l4-62-44 32z" fill="#e8591a"/><path d="M54 64l-2-20 18 13zM146 64l2-20-18 13z" fill="#2b2b2b"/>
+    <path d="M40 100c0-30 26-52 60-52s60 22 60 52c0 34-30 62-60 62s-60-28-60-62z" fill="#f2711c"/>
+    <path d="M40 112c14 4 34 14 60 46 26-32 46-42 60-46-4 36-32 50-60 50s-56-14-60-50z" fill="#fff4e6"/>
+    <ellipse cx="76" cy="98" rx="8" ry="11" fill="#2b2b2b"/><ellipse cx="124" cy="98" rx="8" ry="11" fill="#2b2b2b"/>
+    <circle cx="79" cy="94" r="3" fill="#fff"/><circle cx="127" cy="94" r="3" fill="#fff"/>
+    <ellipse cx="100" cy="140" rx="9" ry="7" fill="#2b2b2b"/>` }
+};
+
+const SUGGESTED = { owl: "Duo", cat: "Mochi", dog: "Biscuit", bunny: "Clover", panda: "Bamboo", fox: "Ember" };
+const LINES = ["Let's learn something today!", "I believe in you!", "Ready when you are!", "Mistakes help you learn.", "One lesson at a time!", "You're doing great!"];
+
+let buddy = loadBuddy() || { type: "owl", name: "" };
+function loadBuddy() { try { return JSON.parse(localStorage.getItem("buddy")); } catch { return null; } }
+function persistBuddy() { try { localStorage.setItem("buddy", JSON.stringify(buddy)); } catch {} }
+const buddySVG = t => `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${BUDDIES[t].svg()}</svg>`;
+
+function renderBuddies() {
+  const nameInput = document.getElementById("buddy-name");
+  document.getElementById("buddy-grid").innerHTML = Object.keys(BUDDIES).map(k =>
+    `<button class="buddy-card" aria-pressed="${buddy.type === k}" data-buddy="${k}">${buddySVG(k)}<span>${BUDDIES[k].label}</span></button>`).join("");
+  nameInput.placeholder = SUGGESTED[buddy.type];
+}
+function renderTeam() {
+  const name = buddy.name || SUGGESTED[buddy.type];
+  document.getElementById("team-avatar").innerHTML = avatarSVG(state);
+  document.getElementById("team-buddy").innerHTML = buddySVG(buddy.type);
+  document.getElementById("team-bubble").textContent = `Hi! I'm ${name}. Let's learn together!`;
+}
+
+document.getElementById("buddy-grid").addEventListener("click", e => {
+  const b = e.target.closest("[data-buddy]"); if (!b) return;
+  buddy.type = b.dataset.buddy; persistBuddy(); renderBuddies();
+});
+document.getElementById("buddy-name").addEventListener("input", e => { buddy.name = e.target.value.trim(); persistBuddy(); });
+document.getElementById("to-buddy").addEventListener("click", () => {
+  document.getElementById("buddy-name").value = buddy.name;
+  renderBuddies(); show("s-buddy");
+});
+document.getElementById("back-done").addEventListener("click", () => show("s-done"));
+document.getElementById("save-buddy").addEventListener("click", () => { persistBuddy(); renderTeam(); show("s-team"); });
+document.getElementById("back-buddy").addEventListener("click", () => show("s-buddy"));
+document.getElementById("team-buddy").addEventListener("click", e => {
+  const el = e.currentTarget;
+  document.getElementById("team-bubble").textContent = choice(LINES);
+  el.classList.remove("hop"); void el.offsetWidth; el.classList.add("hop");
+});
+
 function show(id) {
-  const order = ["s-duo", "s-create", "s-done"];
+  const order = ["s-duo", "s-create", "s-done", "s-buddy", "s-team"];
   const idx = order.indexOf(id);
   order.forEach((sid, i) => {
     const el = document.getElementById(sid);
