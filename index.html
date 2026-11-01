@@ -120,6 +120,30 @@
   @keyframes hop { 40% { transform: translateY(-22px) rotate(-6deg); } }
   .team-wrap .hint { color: var(--muted); font-size: 15px; margin: 0; }
 
+  /* Screen 6: storyline picker */
+  .story-list { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+  .story-card { display: flex; align-items: center; gap: 14px; text-align: left; width: 100%; padding: 12px 14px; border-radius: 18px;
+    border: 2px solid var(--line); background: var(--panel); box-shadow: 0 4px 0 var(--line); }
+  .story-card .icon { flex: none; width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; font-size: 30px; }
+  .story-card .t { font-weight: 800; font-size: 17px; }
+  .story-card .d { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  .story-card[aria-pressed="true"] { border-color: var(--green); background: rgba(137,226,25,.1); box-shadow: 0 4px 0 var(--green-dark); }
+  .story-card:active { transform: translateY(4px); box-shadow: none; }
+
+  /* Screen 7: adventure */
+  .scene { flex: 1; min-height: 0; margin-top: 4px; border-radius: 22px; position: relative; overflow: hidden;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 18px 14px 22px; gap: 14px; }
+  .scene .deco { position: absolute; inset: 0; pointer-events: none; font-size: 26px; }
+  .scene .deco span { position: absolute; opacity: .85; }
+  .scene .chapter { position: absolute; top: 14px; left: 0; right: 0; text-align: center; font-weight: 800; letter-spacing: 1px;
+    font-size: 12px; text-transform: uppercase; color: rgba(255,255,255,.85); }
+  .scene .pair { position: relative; }
+  .scene .bubble { background: rgba(19,31,36,.88); border-color: transparent; font-size: 18px; margin-bottom: 0; width: 100%; max-width: 360px; }
+  .scene .bubble::before, .scene .bubble::after { display: none; }
+  .dots { display: flex; gap: 6px; justify-content: center; margin: 12px 0 2px; }
+  .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+  .dots i.on { background: var(--green); }
+
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 </head>
@@ -217,7 +241,40 @@
       </div>
       <p class="hint">Tap your buddy to say hi</p>
     </div>
-    <button class="btn" id="start">Start learning</button>
+    <button class="btn" id="to-story">Continue</button>
+  </section>
+
+  <!-- 6. Storyline picker -->
+  <section class="screen" id="s-story" aria-label="Choose a storyline">
+    <div class="top">
+      <button class="back" id="back-team" aria-label="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>
+      </button>
+      <h1>Choose your story</h1>
+    </div>
+    <div class="buddy-body">
+      <p class="sub" id="story-sub">Where will your adventure begin?</p>
+      <div class="story-list" id="story-list"></div>
+    </div>
+    <div class="footer"><button class="btn" id="begin-story">Begin adventure</button></div>
+  </section>
+
+  <!-- 7. Adventure -->
+  <section class="screen" id="s-adventure" aria-label="Your adventure">
+    <button class="back" id="back-story" aria-label="Back to storylines">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>
+    </button>
+    <div class="scene" id="scene">
+      <div class="deco" id="deco"></div>
+      <div class="chapter" id="chapter"></div>
+      <div class="pair">
+        <div class="avatar-big" id="adv-avatar"></div>
+        <div class="buddy-big" id="adv-buddy"></div>
+      </div>
+      <div class="bubble" id="adv-text"></div>
+    </div>
+    <div class="dots" id="dots"></div>
+    <div class="footer"><button class="btn" id="next-beat">Next</button></div>
   </section>
 </div>
 
@@ -478,8 +535,64 @@ document.getElementById("team-buddy").addEventListener("click", e => {
   el.classList.remove("hop"); void el.offsetWidth; el.classList.add("hop");
 });
 
+const STORIES = {
+  space: { title: "Space explorers", tag: "Zoom past the stars", icon: "🚀", color: "#4b3fa8", bar: "#7b4de0",
+    deco: ["⭐|8%|14%", "✨|82%|10%", "🪐|70%|30%", "⭐|20%|34%", "🌙|44%|8%"],
+    beats: ["Your rocket is fueled and the countdown has started.", "{b} checks the map. A glowing planet is waiting, and it only speaks a new language.", "Every lesson you finish powers the engines. Ready to blast off?"] },
+  forest: { title: "Enchanted forest", tag: "Follow the glowing path", icon: "🌲", color: "#2f7a3e", bar: "#58cc02",
+    deco: ["🌲|6%|20%", "🍄|84%|32%", "🦋|68%|10%", "🌿|22%|8%", "🌲|88%|16%"],
+    beats: ["Mist drifts between the trees, and a lantern flickers on the path ahead.", "{b} sniffs the air and points. Someone left a riddle carved into an old oak.", "Each lesson lights another lantern. Ready to follow the path?"] },
+  pirate: { title: "Pirate seas", tag: "Hunt for hidden treasure", icon: "🏴‍☠️", color: "#1f6f8b", bar: "#1cb0f6",
+    deco: ["🌊|6%|34%", "🦜|80%|12%", "⛵|60%|30%", "☁️|18%|10%", "🌊|84%|36%"],
+    beats: ["The wind fills the sails and the sea sparkles.", "{b} spots a torn treasure map tucked inside a bottle.", "The only way to read it is to learn its words. Ready to set sail?"] },
+  detective: { title: "Mystery detectives", tag: "Crack a secret code", icon: "🔍", color: "#8a4b2a", bar: "#ff9600",
+    deco: ["🔎|8%|12%", "🗝️|82%|14%", "📜|72%|32%", "🕯️|22%|34%", "❓|46%|8%"],
+    beats: ["A coded note slid under your door at midnight.", "{b} nudges it toward you. The letters are in a language you almost know.", "Each lesson reveals another clue. Ready to crack the case?"] },
+  dino: { title: "Dino island", tag: "Befriend a baby dino", icon: "🦖", color: "#b25a1e", bar: "#ffc800",
+    deco: ["🌴|6%|18%", "🥚|80%|34%", "🌋|68%|8%", "🌴|88%|20%", "☀️|40%|8%"],
+    beats: ["Your boat bumps the sand of a hidden island.", "{b} hears a squeak. A baby dino is stuck behind a rock and wants a friend.", "It only understands the words you learn. Ready to say hello?"] }
+};
+let storyKey = (() => { try { return localStorage.getItem("story") || "space"; } catch { return "space"; } })();
+let beat = 0;
+
+function renderStories() {
+  document.getElementById("story-list").innerHTML = Object.entries(STORIES).map(([k, s]) =>
+    `<button class="story-card" aria-pressed="${storyKey === k}" data-story="${k}">
+       <span class="icon" style="background:${s.color}">${s.icon}</span>
+       <span><div class="t">${s.title}</div><div class="d">${s.tag}</div></span></button>`).join("");
+}
+function renderBeat() {
+  const s = STORIES[storyKey];
+  const bName = buddy.name || SUGGESTED[buddy.type];
+  const last = beat === s.beats.length - 1;
+  document.getElementById("scene").style.background = s.color;
+  document.getElementById("deco").innerHTML = s.deco.map(d => { const [e, x, y] = d.split("|"); return `<span style="left:${x};top:${y}">${e}</span>`; }).join("");
+  document.getElementById("chapter").textContent = `${s.title} · Part ${beat + 1} of ${s.beats.length}`;
+  document.getElementById("adv-avatar").innerHTML = avatarSVG(state);
+  document.getElementById("adv-buddy").innerHTML = buddySVG(buddy.type);
+  document.getElementById("adv-text").textContent = s.beats[beat].replace("{b}", bName);
+  document.getElementById("dots").innerHTML = s.beats.map((_, i) => `<i class="${i === beat ? "on" : ""}"></i>`).join("");
+  document.getElementById("next-beat").textContent = last ? "Start learning" : "Next";
+}
+
+document.getElementById("to-story").addEventListener("click", () => { renderStories(); show("s-story"); });
+document.getElementById("back-team").addEventListener("click", () => show("s-team"));
+document.getElementById("story-list").addEventListener("click", e => {
+  const b = e.target.closest("[data-story]"); if (!b) return;
+  storyKey = b.dataset.story;
+  try { localStorage.setItem("story", storyKey); } catch {}
+  renderStories();
+});
+document.getElementById("begin-story").addEventListener("click", () => { beat = 0; renderBeat(); show("s-adventure"); });
+document.getElementById("back-story").addEventListener("click", () => show("s-story"));
+document.getElementById("next-beat").addEventListener("click", () => {
+  const s = STORIES[storyKey];
+  if (beat < s.beats.length - 1) { beat++; renderBeat(); }
+  else document.getElementById("adv-text").textContent = "Your first lesson is almost ready. Stay tuned!";
+});
+
 function show(id) {
-  const order = ["s-duo", "s-create", "s-done", "s-buddy", "s-team"];
+  const order = ["s-duo", "s-create", "s-done", "s-buddy", "s-team", "s-story", "s-adventure"];
   const idx = order.indexOf(id);
   order.forEach((sid, i) => {
     const el = document.getElementById(sid);
